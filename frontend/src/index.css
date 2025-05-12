@@ -92,6 +92,11 @@
 
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply tracking-tight;
   }
 }
 
@@ -105,7 +110,7 @@
 }
 
 .auth-form {
-  @apply max-w-md mx-auto mt-16 p-8 bg-white rounded-xl shadow-lg;
+  @apply max-w-md mx-auto mt-16 p-8 bg-white dark:bg-gray-800 rounded-xl shadow-xl;
 }
 
 .dashboard-stats {
@@ -113,22 +118,22 @@
 }
 
 .data-table {
-  @apply w-full border-collapse bg-white rounded-xl shadow-md overflow-hidden;
+  @apply w-full border-collapse bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden;
 }
 
 .data-table th {
-  @apply px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50;
+  @apply px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider bg-gray-50 dark:bg-gray-700;
 }
 
 .data-table td {
-  @apply px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-t border-gray-200;
+  @apply px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-200 border-t border-gray-200 dark:border-gray-700;
 }
 
 .form-section {
-  @apply mt-8 p-8 bg-white rounded-xl shadow-md;
+  @apply mt-8 p-8 bg-white dark:bg-gray-800 rounded-xl shadow-md;
 }
 
-/* Animations for a more modern feel */
+/* Advanced animations for a more modern feel */
 .animate-fade-in {
   animation: fadeIn 0.5s ease-out forwards;
 }
@@ -159,4 +164,123 @@
 
 .card-hover:hover {
   @apply shadow-xl -translate-y-1;
+}
+
+/* Text gradient effect */
+.text-gradient {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600;
+}
+
+/* Glassmorphism effects */
+.glass-effect {
+  @apply bg-white/90 dark:bg-gray-900/80 backdrop-blur-md border border-white/40 dark:border-gray-700/30;
+}
+
+.glass-card {
+  @apply glass-effect rounded-xl shadow-lg;
+}
+
+/* Enhanced form field styles */
+.form-field {
+  @apply transition-all duration-200 focus:ring-2 focus:ring-blue-500/50;
+}
+
+/* Better looking buttons with gradient */
+.gradient-button {
+  @apply bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 transition-all duration-300;
+}
+
+/* Fancy card with gradient border */
+.fancy-card {
+  @apply p-0.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500;
+}
+
+.fancy-card-inner {
+  @apply bg-white dark:bg-gray-800 rounded-lg p-6 h-full;
+}
+
+/* Custom table styling */
+.modern-table {
+  @apply w-full border-collapse overflow-hidden rounded-xl;
+}
+
+.modern-table thead {
+  @apply bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/50 dark:to-indigo-900/50;
+}
+
+.modern-table th {
+  @apply px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider;
+}
+
+.modern-table tr {
+  @apply border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors;
+}
+
+.modern-table td {
+  @apply px-6 py-4 whitespace-nowrap;
+}
+
+/* Custom scrollbar styling */
+::-webkit-scrollbar {
+  @apply w-2;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-100 dark:bg-gray-800 rounded-full;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 dark:bg-gray-600 rounded-full hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors;
+}
+
+/* Enhance accessibility for focus states */
+:focus-visible {
+  @apply outline-none ring-2 ring-offset-2 ring-primary;
+}
+
+/* Interactive hover states */
+.interactive-hover {
+  @apply transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-800 active:bg-gray-200 dark:active:bg-gray-700;
+}
+
+/* Custom input styling */
+input.enhanced, select.enhanced, textarea.enhanced {
+  @apply rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200;
+}
+
+/* Badge styles for different states */
+.badge-success {
+  @apply bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border border-green-200 dark:border-green-800;
+}
+
+.badge-warning {
+  @apply bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800;
+}
+
+.badge-error {
+  @apply bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border border-red-200 dark:border-red-800;
+}
+
+.badge-info {
+  @apply bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800;
+}
+
+/* Section headers with background gradients */
+.section-header {
+  @apply bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-6 text-white mb-6;
+}
+
+/* 3D button effect */
+.button-3d {
+  @apply transition-all duration-200 active:translate-y-0.5 shadow-lg hover:shadow-xl;
+}
+
+/* Pulsing animation for notifications or alerts */
+.pulse-animation {
+  @apply animate-pulse;
+}
+
+/* Subtle hover effects for cards */
+.subtle-hover {
+  @apply transition-all duration-300 hover:shadow-lg hover:border-primary/50;
 }

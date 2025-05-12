@@ -1,6 +1,6 @@
 
-import { useState } from "react";
-import { instructorAPI } from "@/services/api";
+import { useState, useEffect } from "react";
+import { instructorAPI } from "@/services";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,19 +8,37 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CalendarClock, Download, Plus } from "lucide-react";
 import { toast } from "sonner";
+import CourseSelect, { Course } from "@/components/CourseSelect";
 
 const InstructorResitExams = () => {
   const [resitFormData, setResitFormData] = useState({
-    course_id: "",
-    exam_date: "",
     no_of_questions: "",
     allowed_tools: "",
     notes: "",
   });
-  const [isSubmittingResit, setIsSubmittingResit] = useState(false);
   
-  const [exportCourseId, setExportCourseId] = useState("");
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null);
+  const [exportCourseId, setExportCourseId] = useState<number | null>(null);
+  
+  const [isSubmittingResit, setIsSubmittingResit] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const data = await instructorAPI.getMyCourses();
+        setCourses(data.courses || []);
+      } catch (error) {
+        console.error("Error fetching courses:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchCourses();
+  }, []);
 
   const handleResitInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -35,8 +53,8 @@ const InstructorResitExams = () => {
   const handleResitSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!resitFormData.course_id || !resitFormData.exam_date) {
-      toast.error("Course ID and exam date are required");
+    if (!selectedCourseId) {
+      toast.error("Course is required");
       return;
     }
     
@@ -44,8 +62,7 @@ const InstructorResitExams = () => {
     
     try {
       await instructorAPI.addResitDetails({
-        course_id: parseInt(resitFormData.course_id),
-        exam_date: resitFormData.exam_date,
+        course_id: selectedCourseId,
         no_of_questions: resitFormData.no_of_questions ? parseInt(resitFormData.no_of_questions) : undefined,
         allowed_tools: resitFormData.allowed_tools || undefined,
         notes: resitFormData.notes || undefined,
@@ -55,8 +72,6 @@ const InstructorResitExams = () => {
       
       // Clear the form
       setResitFormData({
-        course_id: "",
-        exam_date: "",
         no_of_questions: "",
         allowed_tools: "",
         notes: "",
@@ -72,14 +87,14 @@ const InstructorResitExams = () => {
     e.preventDefault();
     
     if (!exportCourseId) {
-      toast.error("Please enter a course ID");
+      toast.error("Please select a course");
       return;
     }
     
     setIsExporting(true);
     
     try {
-      await instructorAPI.exportResit(parseInt(exportCourseId));
+      await instructorAPI.exportResit(exportCourseId);
       toast.success("Export started. Check your downloads folder.");
     } catch (error) {
       console.error("Error exporting resit list:", error);
@@ -90,41 +105,26 @@ const InstructorResitExams = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">Resit Exams</h1>
+      <h1 className="text-3xl font-bold mb-6 text-gradient">Resit Exams</h1>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Plus className="h-5 w-5 mr-2" />
+        <Card className="card-hover">
+          <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-t-xl border-b">
+            <CardTitle className="flex items-center text-xl font-bold">
+              <Plus className="h-5 w-5 mr-3 text-primary" />
               Add Resit Exam Details
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <form onSubmit={handleResitSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="course_id">Course ID *</Label>
-                <Input
-                  id="course_id"
-                  name="course_id"
-                  type="number"
-                  placeholder="Enter course ID"
-                  value={resitFormData.course_id}
-                  onChange={handleResitInputChange}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="exam_date">Exam Date *</Label>
-                <Input
-                  id="exam_date"
-                  name="exam_date"
-                  type="date"
-                  value={resitFormData.exam_date}
-                  onChange={handleResitInputChange}
-                  required
-                />
-              </div>
+          <CardContent className="pt-6">
+            <form onSubmit={handleResitSubmit} className="space-y-5">
+              <CourseSelect 
+                courses={courses}
+                onChange={(id) => setSelectedCourseId(id)}
+                isLoading={isLoading}
+                label="Course"
+                placeholder="Select a course"
+              />
+              
               <div className="space-y-2">
                 <Label htmlFor="no_of_questions">Number of Questions</Label>
                 <Input
@@ -134,6 +134,7 @@ const InstructorResitExams = () => {
                   placeholder="Enter number of questions"
                   value={resitFormData.no_of_questions}
                   onChange={handleResitInputChange}
+                  className="bg-gradient-to-r from-gray-50 to-white hover:from-white hover:to-gray-50"
                 />
               </div>
               <div className="space-y-2">
@@ -144,6 +145,7 @@ const InstructorResitExams = () => {
                   placeholder="Calculator, ruler, etc."
                   value={resitFormData.allowed_tools}
                   onChange={handleResitInputChange}
+                  className="bg-gradient-to-r from-gray-50 to-white hover:from-white hover:to-gray-50"
                 />
               </div>
               <div className="space-y-2">
@@ -154,9 +156,14 @@ const InstructorResitExams = () => {
                   placeholder="Any additional instructions or notes"
                   value={resitFormData.notes}
                   onChange={handleResitInputChange}
+                  className="bg-gradient-to-r from-gray-50 to-white hover:from-white hover:to-gray-50 min-h-[100px]"
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={isSubmittingResit}>
+              <Button 
+                type="submit" 
+                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700" 
+                disabled={isSubmittingResit || !selectedCourseId}
+              >
                 {isSubmittingResit ? (
                   <div className="flex items-center">
                     <span className="animate-spin mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
@@ -173,27 +180,28 @@ const InstructorResitExams = () => {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Download className="h-5 w-5 mr-2" />
+        <Card className="card-hover">
+          <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-t-xl border-b">
+            <CardTitle className="flex items-center text-xl font-bold">
+              <Download className="h-5 w-5 mr-3 text-primary" />
               Export Resit Participants
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <form onSubmit={handleExportSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="exportCourseId">Course ID</Label>
-                <Input
-                  id="exportCourseId"
-                  type="number"
-                  placeholder="Enter course ID"
-                  value={exportCourseId}
-                  onChange={(e) => setExportCourseId(e.target.value)}
-                  required
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={isExporting}>
+          <CardContent className="pt-6">
+            <form onSubmit={handleExportSubmit} className="space-y-5">
+              <CourseSelect 
+                courses={courses}
+                onChange={(id) => setExportCourseId(id)}
+                isLoading={isLoading}
+                label="Course"
+                placeholder="Select a course"
+              />
+              
+              <Button 
+                type="submit" 
+                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700" 
+                disabled={isExporting || !exportCourseId}
+              >
                 {isExporting ? (
                   <div className="flex items-center">
                     <span className="animate-spin mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full" />

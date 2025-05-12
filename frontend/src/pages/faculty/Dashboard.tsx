@@ -1,31 +1,44 @@
-
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import API from '@/api/axios';
+import FacultyDashboard from '@/components/dashboard/FacultyDashboard';
 import { useToast } from '@/hooks/use-toast';
 
-interface DashboardData {
-  total_resit_registrations: number;
-  total_resit_exams: number;
-}
-
-const FacultyDashboard: React.FC = () => {
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
+const FacultyDashboardPage: React.FC = () => {
   const { toast } = useToast();
 
+  const [dashboardData, setDashboardData] = useState<any>({});
+  const [resitExams, setResitExams] = useState([]);
+  const [resitRegistrations, setResitRegistrations] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
-    const fetchDashboardData = async () => {
+    const fetchAll = async () => {
       try {
-        const response = await API.get('/api/dashboard');
+        const [dashboardRes, examsRes, registrationsRes] = await Promise.all([
+          API.get('/dashboard'),
+          API.get('/faculty/all-resit-exams'),
+          API.get('/faculty/all-resit-registrations'),
+        ]);
+
+        // Normalize backend response field for frontend
+        const mappedRegistrations = registrationsRes.data.registrations.map((r: any) => ({
+          ...r,
+          student_count: r.total_registered,
+          students: [], // if needed in future
+        }));
+
+        setDashboardData({
+          total_resit_registrations: mappedRegistrations.reduce((sum, r) => sum + r.student_count, 0),
+          total_resit_exams: examsRes.data.exams?.length || 0
+        });
         
-        // Direct mapping from backend response
-        setDashboardData(response.data);
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
+        setResitExams(examsRes.data.exams || []);
+        setResitRegistrations(mappedRegistrations);
+      } catch (err) {
+        console.error('Error loading dashboard:', err);
         toast({
-          title: 'Error',
-          description: 'Failed to load dashboard data',
+          title: 'Dashboard Error',
+          description: 'Could not load faculty data.',
           variant: 'destructive',
         });
       } finally {
@@ -33,8 +46,8 @@ const FacultyDashboard: React.FC = () => {
       }
     };
 
-    fetchDashboardData();
-  }, [toast]);
+    fetchAll();
+  }, []);
 
   if (loading) {
     return (
@@ -45,43 +58,12 @@ const FacultyDashboard: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold">Faculty Secretary Dashboard</h1>
-      
-      {dashboardData && (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-gray-500">Total Resit Registrations</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold">{dashboardData.total_resit_registrations}</p>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-gray-500">Total Resit Exams</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold">{dashboardData.total_resit_exams}</p>
-              </CardContent>
-            </Card>
-          </div>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Activity</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-center py-8 text-gray-500">No recent activity available.</p>
-            </CardContent>
-          </Card>
-        </>
-      )}
-    </div>
+    <FacultyDashboard
+      dashboardData={dashboardData}
+      resitExams={resitExams}
+      resitRegistrations={resitRegistrations}
+    />
   );
 };
 
-export default FacultyDashboard;
+export default FacultyDashboardPage;

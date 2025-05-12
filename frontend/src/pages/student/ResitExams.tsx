@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { AxiosError } from 'axios';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import API from '@/api/axios';
 import { useToast } from '@/hooks/use-toast';
+import CourseSelect from "@/components/CourseSelect";
+
 
 interface ResitExam {
   id: string;
@@ -14,22 +17,40 @@ interface ResitExam {
   is_declared: boolean;
 }
 
+interface Course {
+  course_id: number;
+  course_code: string;
+  course_name: string;
+}
+
 const ResitExamsPage: React.FC = () => {
-  const [resitExams, setResitExams] = useState<ResitExam[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [declaringId, setDeclaringId] = useState<string | null>(null);
   const { toast } = useToast();
 
+  const [resitExams, setResitExams] = useState<ResitExam[]>([]);
+  const [eligibleCourses, setEligibleCourses] = useState<Course[]>([]);
+  const [selectedCourseId, setSelectedCourseId] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+  const [declaring, setDeclaring] = useState(false);
+
   useEffect(() => {
-    const fetchResitExams = async () => {
+    const fetchData = async () => {
       try {
-        const response = await API.get('/api/student/my-resit-exams');
-        setResitExams(response.data);
-      } catch (error) {
-        console.error('Error fetching resit exams:', error);
+        const [resitsRes, eligibleRes] = await Promise.all([
+          API.get('/api/student/my-resit-exams'),
+          API.get('/api/student/eligible-resit-courses'),
+        ]);
+
+        console.log('✅ Resit Exams:', resitsRes.data);
+        console.log('✅ Eligible Courses:', eligibleRes.data);
+
+        setResitExams(resitsRes.data || []);
+        setEligibleCourses(eligibleRes.data.eligible_courses || []);
+      } catch (err) {
+        const error = err as AxiosError;
+        console.error('❌ Error loading resit data:', error);
         toast({
           title: 'Error',
-          description: 'Failed to load resit exams data',
+          description: 'Failed to load resit data.',
           variant: 'destructive',
         });
       } finally {
@@ -37,109 +58,151 @@ const ResitExamsPage: React.FC = () => {
       }
     };
 
-    fetchResitExams();
+    fetchData();
   }, [toast]);
 
-  const handleDeclareResit = async (resitId: string) => {
-    setDeclaringId(resitId);
+  const handleDeclareResit = async () => {
+    if (!selectedCourseId) return;
+
+    setDeclaring(true);
     try {
-      await API.post('/api/declare-resit', { resit_id: resitId });
-      
-      // Update the local state to reflect the declaration
-      setResitExams(resitExams.map(exam => 
-        exam.id === resitId ? { ...exam, is_declared: true } : exam
-      ));
-      
-      toast({
-        title: 'Success',
-        description: 'You have successfully declared for this resit exam.',
-      });
-    } catch (error) {
-      console.error('Error declaring for resit:', error);
+      await API.post('/api/declare-resit', { course_id: Number(selectedCourseId) });
+
+      toast({ title: 'Success', description: 'You have successfully declared for the resit.' });
+
+      const declared = eligibleCourses.find(c => c.course_id.toString() === selectedCourseId);
+      if (declared) {
+        setResitExams(prev => [
+          ...prev,
+          {
+            id: Math.random().toString(),
+            course_id: declared.course_id.toString(),
+            course_name: declared.course_name,
+            date: 'TBD',
+            time: 'TBD',
+            location: 'TBD',
+            is_declared: true,
+          }
+        ]);
+      }
+
+      setEligibleCourses(prev =>
+        prev.filter(c => c.course_id.toString() !== selectedCourseId)
+      );
+      setSelectedCourseId('');
+    } catch (err) {
+      const error = err as AxiosError;
       toast({
         title: 'Error',
-        description: 'Failed to declare for resit exam',
+        description: error.response?.data?.error || 'Failed to declare.',
         variant: 'destructive',
       });
+      console.error('❌ Declaration error:', error);
     } finally {
-      setDeclaringId(null);
+      setDeclaring(false);
     }
+  };
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric', month: 'long', day: 'numeric'
+    }).format(date);
   };
 
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
       </div>
     );
   }
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return new Intl.DateTimeFormat('en-US', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    }).format(date);
-  };
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <h1 className="text-3xl font-bold">Resit Exams</h1>
-      
-      {resitExams.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {resitExams.map((exam) => (
-            <Card key={exam.id}>
-              <CardHeader>
-                <CardTitle>{exam.course_name}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div>
-                  <span className="font-medium">Date:</span> {formatDate(exam.date)}
-                </div>
-                <div>
-                  <span className="font-medium">Time:</span> {exam.time}
-                </div>
-                <div>
-                  <span className="font-medium">Location:</span> {exam.location}
-                </div>
-                <div>
-                  <span className="font-medium">Status:</span>{' '}
-                  <span 
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      exam.is_declared 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}
-                  >
-                    {exam.is_declared ? 'Declared' : 'Not Declared'}
-                  </span>
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button
-                  onClick={() => handleDeclareResit(exam.id)}
-                  disabled={exam.is_declared || declaringId === exam.id}
-                  className="w-full"
-                >
-                  {declaringId === exam.id 
-                    ? 'Processing...' 
-                    : exam.is_declared 
-                      ? 'Already Declared' 
-                      : 'Declare for Resit'}
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <Card>
-          <CardContent className="text-center py-8">
-            <p className="text-gray-500">No resit exams available at the moment.</p>
-          </CardContent>
-        </Card>
-      )}
+
+      {/* Register for Resit Section */}
+      <div className="bg-white p-6 rounded shadow space-y-4">
+        <h2 className="text-xl font-semibold">Register for Resit Exam</h2>
+
+        {/* Debug log */}
+        {console.log('📌 Rendering Dropdown - Eligible Courses:', eligibleCourses)}
+
+        {eligibleCourses && eligibleCourses.length > 0 ? (
+          <div className="space-y-4">
+            <CourseSelect
+              courses={eligibleCourses}
+                onChange={(id: number) => setSelectedCourseId(id.toString())}
+               placeholder="Choose a course for resit"
+              label="Select Course"
+            />
+
+
+    <Button
+      disabled={!selectedCourseId || declaring}
+      onClick={handleDeclareResit}
+      className="w-full"
+    >
+      {declaring ? 'Declaring...' : 'Declare for Selected Course'}
+    </Button>
+  </div>
+) : (
+  <>
+    <p className="text-sm text-red-500 font-medium">
+      No eligible courses found (UI fallback). You may be eligible, but rendering failed.
+    </p>
+    <pre className="text-xs bg-gray-100 p-2 rounded border mt-2 max-h-40 overflow-y-auto">
+      {JSON.stringify(eligibleCourses, null, 2)}
+    </pre>
+  </>
+)}
+
+
+        <ul className="text-sm text-gray-600 list-disc pl-5">
+          <li>Register for each resit exam separately</li>
+          <li>Registration closes 48 hours before the exam</li>
+          <li>Check eligibility criteria before registering</li>
+        </ul>
+      </div>
+
+      {/* Registered Resit Exams */}
+      <div>
+        <h2 className="text-xl font-semibold mb-4">My Registered Resit Exams</h2>
+        {resitExams.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {resitExams.map(exam => (
+              <Card key={exam.id}>
+                <CardHeader>
+                  <CardTitle>{exam.course_name}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div><strong>Date:</strong> {exam.date !== 'TBD' ? formatDate(exam.date) : 'TBD'}</div>
+                  <div><strong>Time:</strong> {exam.time || 'TBD'}</div>
+                  <div><strong>Location:</strong> {exam.location || 'TBD'}</div>
+                  <div>
+                    <strong>Status:</strong>{' '}
+                    <span className={`${exam.is_declared ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'} px-2 py-1 rounded-full text-xs`}>
+                      {exam.is_declared ? 'Declared' : 'Not Declared'}
+                    </span>
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Button disabled className="w-full">
+                    {exam.is_declared ? 'Already Declared' : 'Declare'}
+                  </Button>
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <Card>
+            <CardContent className="text-center py-8">
+              <p className="text-gray-500">No resit exams available at the moment.</p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 };

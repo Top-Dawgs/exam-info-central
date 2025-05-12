@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from "react";
-import { studentAPI } from "@/services/api";
+import { studentAPI } from "@/services";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Bell } from "lucide-react";
 

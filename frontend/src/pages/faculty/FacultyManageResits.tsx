@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { facultyAPI } from "@/services/api";
+import { facultyAPI } from "@/services";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -75,15 +75,16 @@ const FacultyManageResits = () => {
     setIsExporting(true);
     
     try {
-      const response = await facultyAPI.getResitRegistrations(parseInt(registrationCourseId));
+      const result = await facultyAPI.exportResit(parseInt(registrationCourseId));
       
-      if (response.participants && response.participants.length > 0) {
-        toast.success(`Found ${response.participants.length} registered students`);
+      if (result.success) {
+        toast.success("Export completed successfully. Check your downloads folder.");
       } else {
-        toast.info("No students registered for this resit exam");
+        toast.error(result.message || "Failed to export resit list");
       }
     } catch (error) {
-      console.error("Error fetching resit registrations:", error);
+      console.error("Error exporting resit registrations:", error);
+      toast.error("Failed to export resit list");
     } finally {
       setIsExporting(false);
     }
@@ -153,7 +154,7 @@ const FacultyManageResits = () => {
           <CardHeader>
             <CardTitle className="flex items-center">
               <Download className="h-5 w-5 mr-2" />
-              View Resit Registrations
+              Export Resit Registrations
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -173,12 +174,12 @@ const FacultyManageResits = () => {
                 {isExporting ? (
                   <div className="flex items-center">
                     <span className="animate-spin mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                    Loading...
+                    Downloading...
                   </div>
                 ) : (
                   <div className="flex items-center">
                     <Download className="h-4 w-4 mr-2" />
-                    View Registrations
+                    Download CSV
                   </div>
                 )}
               </Button>

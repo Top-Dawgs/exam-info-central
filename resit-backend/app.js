@@ -4,9 +4,19 @@ const path = require('path');
 
 const app = express();
 
-// Middleware
-app.use(cors());                     // Enable CORS for all routes
-app.use(express.json());             // Parse incoming JSON requests
+// CORS: allow frontend on localhost:8080 + Authorization
+app.use(cors({
+  origin: 'http://localhost:8080',
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
+// Handle preflight requests explicitly
+//app.options('*', cors());
+
+// Parse incoming JSON requests
+app.use(express.json());
+
 
 // Static file serving for schedule uploads
 app.use('/api/schedule', express.static(path.join(__dirname, 'uploads')));

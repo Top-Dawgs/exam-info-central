@@ -21,6 +21,7 @@ import StudentNotifications from "./pages/student/StudentNotifications";
 import InstructorUploadGrades from "./pages/instructor/InstructorUploadGrades";
 import InstructorResitExams from "./pages/instructor/InstructorResitExams";
 import InstructorNotifications from "./pages/instructor/InstructorNotifications";
+import InstructorRegistrations from "./pages/instructor/InstructorRegistrations";
 
 // Faculty secretary pages
 import FacultyUploadSchedule from "./pages/faculty/FacultyUploadSchedule";
@@ -59,6 +60,7 @@ const App = () => (
               <Route path="instructor/upload-grades" element={<InstructorUploadGrades />} />
               <Route path="instructor/resit-exams" element={<InstructorResitExams />} />
               <Route path="instructor/notifications" element={<InstructorNotifications />} />
+              <Route path="instructor/registrations" element={<InstructorRegistrations />} />
             </Route>
 
             {/* Faculty secretary routes */}

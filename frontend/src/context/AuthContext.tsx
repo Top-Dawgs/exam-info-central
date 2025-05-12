@@ -28,12 +28,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (token) {
         try {
           const response = await API.get('/api/verify');
-          // Map backend user object to our frontend User type
-          const userData: User = {
-            id: response.data.user.user_id,
-            name: response.data.user.email.split('@')[0], // Use email prefix as name
-            email: response.data.user.email,
-            role: response.data.user.role,
+          // Adapt to your backend response structure
+          const userData = response.data.user || {
+            id: response.data.userId || response.data.id,
+            name: response.data.name || response.data.username || 'User',
+            email: response.data.email || '',
+            role: response.data.role || 'student'
           };
           
           setState({
@@ -62,17 +62,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const login = async (credentials: LoginCredentials) => {
     try {
       const response = await API.post('/api/login', credentials);
-      
-      // Get token from response
+      // Adapt to your backend response structure
       const token = response.data.token;
       
-      // Map the backend user object to our frontend User type
-      const userData: User = {
-        id: response.data.user.user_id,
-        name: response.data.user.email.split('@')[0], // Use email prefix as name
-        email: response.data.user.email,
-        role: response.data.user.role,
-      };
+      // Create a user object from whatever data your backend provides
+      const userData = response.data.user; // use exactly what your backend sends
+
       
       localStorage.setItem('token', token);
       setState({
@@ -81,6 +76,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         isAuthenticated: true,
         isLoading: false,
       });
+      
       
       toast({
         title: 'Login Successful',
@@ -99,16 +95,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const register = async (credentials: RegisterCredentials) => {
     try {
       const response = await API.post('/api/register', credentials);
+      const { user, token } = response.data;
       
-      // After registration, we need to log the user in
-      await login({ 
-        email: credentials.email, 
-        password: credentials.password 
+      localStorage.setItem('token', token);
+      setState({
+        user,
+        token,
+        isAuthenticated: true,
+        isLoading: false,
       });
       
       toast({
         title: 'Registration Successful',
-        description: `Welcome!`,
+        description: `Welcome, ${user.name}!`,
       });
     } catch (error) {
       toast({

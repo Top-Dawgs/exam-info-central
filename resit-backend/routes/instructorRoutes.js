@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const csv = require('csv-parser');
 
-// Post /api/submit-grade
+// Post /api/instructor/submit-grade
 router.post('/submit-grade', authenticateToken, async (req, res) => {
     const {userId, role} = req.user;
 
@@ -52,83 +52,91 @@ router.post('/submit-grade', authenticateToken, async (req, res) => {
     }
 });
 
- // POST /api/resit-details
-router.post('/resit-details', authenticateToken, async (req, res) => {
-    const { userId, role} = req.user;
+ // POST /api/instructor/resit-details
+ router.post('/resit-details', authenticateToken, async (req, res) => {
+  const { userId, role } = req.user;
 
-    if (role !== 'instructor') {
-        return res.status(403).json({ error: 'Only instructors can set resit exams'});
+  if (role !== 'instructor') {
+    return res.status(403).json({ error: 'Only instructors can set resit exams' });
+  }
+
+  const { course_id, no_of_questions, allowed_tools, notes } = req.body;
+
+  if (!course_id) {
+    return res.status(400).json({ error: 'Course ID is required.' });
+  }
+
+  try {
+    const [existing] = await pool.query(
+      'SELECT * FROM Exams WHERE course_id = ? AND exam_type = "resit"',
+      [course_id]
+    );
+
+    if (existing.length > 0) {
+      await pool.query(
+        `UPDATE Exams 
+         SET no_of_questions = ?, allowed_tools = ?, notes = ?
+         WHERE course_id = ? AND exam_type = 'resit'`,
+        [no_of_questions, allowed_tools, notes, course_id]
+      );
+      return res.json({ message: 'Resit exam details updated.' });
+    } else {
+      await pool.query(
+        `INSERT INTO Exams (course_id, exam_type, no_of_questions, allowed_tools, notes)
+         VALUES (?, 'resit', ?, ?, ?)`,
+        [course_id, no_of_questions, allowed_tools, notes]
+      );
+      return res.status(201).json({ message: 'Resit exam created successfully.' });
     }
 
-    const { course_id, exam_date, no_of_questions, allowed_tools, notes } = req.body ;
-
-    if (!course_id || !exam_date) {
-        return res.status(400).json({ error:' Course Id and Exam date are required. '});
-    }
-
-    try {
-        // Check if resit exam date already exists for this course
-        const [existing] = await pool.query(
-            'SELECT * FROM Exams WHERE course_id = ? AND exam_type = "resit" ',
-            [course_id]
-        );
-
-        if (existing.length > 0) {
-            // Update existing resit exam 
-            await pool.query(
-                'UPDATE Exams SET exam_date = ?,   no_of_questions = ?, allowed_tools = ?, notes = ? WHERE course_id = ? AND exam_type = "resit" ',
-                [exam_date, no_of_questions, allowed_tools, notes, course_id]
-            );
-            return res.json({ message: 'Resit exam details updated.'});
-        }else {
-            // Insert new resit exam
-            await pool.query(
-                `INSERT INTO Exams (course_id, exam_date, exam_type, no_of_questions, allowed_tools, notes)
-         VALUES (?, ?, 'resit', ?, ?, ?)`,
-         [course_id, exam_date, no_of_questions, allowed_tools, notes]
-
-            );
-            
-        return res.status(201).json({ message: 'Resit exam created successfully.' });
-        }
-    }catch (err){
-        console.error(err);
-        res.status(500).json({ error: 'Failed to set resit exam details.' });
-    }
-
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to set resit exam details.' });
+  }
 });
 
 
-// GET /api/resit-registrations/:course_id
+// GET /api/instructor/resit-registrations/:course_id
 router.get('/resit-registrations/:course_id', authenticateToken, async (req, res) => {
-    const { userId, role } = req.user;
-    const { course_id } = req.params;
-  
-    if (role !== 'instructor' && role !== 'faculty_secretary') {
-      return res.status(403).json({ error: 'Only instructors or faculty secretaries can view registrations.' });
-    }
-  
-    try {
-      const [rows] = await pool.query(
-        `SELECT u.email, g.grade, e.exam_date, c.course_code, c.course_name
-         FROM ResitRegistrations r
-         JOIN Users u ON r.student_id = u.user_id
-         JOIN Exams e ON r.exam_id = e.exam_id
-         JOIN Courses c ON e.course_id = c.course_id
-         LEFT JOIN Grades g ON g.student_id = u.user_id AND g.course_id = c.course_id
-         WHERE e.course_id = ? AND e.exam_type = 'resit'`,
-        [course_id]
+  const { userId, role } = req.user;
+  const { course_id } = req.params;
+
+  if (role !== 'instructor' && role !== 'faculty_secretary') {
+    return res.status(403).json({ error: 'Only instructors or secretaries can view registrations.' });
+  }
+
+  try {
+    // Ensure course belongs to this instructor (secretary bypasses)
+    if (role === 'instructor') {
+      const [course] = await pool.query(
+        'SELECT 1 FROM Courses WHERE course_id = ? AND instructor_id = ?',
+        [course_id, userId]
       );
-  
-      res.json({ participants: rows });
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: 'Could not fetch resit registration list.' });
+      if (!course.length) {
+        return res.status(403).json({ error: 'Not your course.' });
+      }
     }
- });
+
+    const [rows] = await pool.query(
+      `SELECT u.email, g.grade, g.letter_grade, e.exam_date, c.course_code, c.course_name
+       FROM ResitRegistrations r
+       JOIN Users u ON r.student_id = u.user_id
+       JOIN Exams e ON r.exam_id = e.exam_id
+       JOIN Courses c ON e.course_id = c.course_id
+       LEFT JOIN Grades g ON g.student_id = u.user_id AND g.course_id = c.course_id
+       WHERE c.course_id = ? AND e.exam_type = 'resit'`,
+      [course_id]
+    );
+
+    res.json({ participants: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not fetch resit registration list.' });
+  }
+});
 
 
-// POST /api/upload-grades-file
+// POST /api/instructor/upload-grades-file
 router.post(
     '/upload-grades-file',
     authenticateToken,
@@ -218,7 +226,7 @@ router.post(
             );
           }
   
-          // d) Auto-register FF/FD
+          /* d) Auto-register FF/FD
           if (['FF','FD'].includes(letter)) {
             const [exams] = await pool.query(
               'SELECT exam_id FROM Exams WHERE course_id = ? AND exam_type = "resit"',
@@ -230,7 +238,7 @@ router.post(
                 [student_id, exams[0].exam_id]
               );
             }
-          }
+          }*/
   
           // e) Remove old registrations if no longer eligible
           if (!['FF','FD','DD','DC'].includes(letter)) {
@@ -259,7 +267,7 @@ router.post(
  );
 
  
-// GET /api/export-resit/:course_id
+// GET /api/instructor/export-resit/:course_id
 router.get('/export-resit/:course_id', authenticateToken, async (req, res) => {
     const { userId, role } = req.user;
     const { course_id } = req.params;
@@ -309,28 +317,84 @@ router.get('/export-resit/:course_id', authenticateToken, async (req, res) => {
 
 // POST /api/notify
 router.post('/notify', authenticateToken, async (req, res) => {
-    const { userId, role } = req.user;
-    const { target_user_id, message } = req.body;
-  
-    if (!['instructor', 'faculty_secretary'].includes(role)) {
-      return res.status(403).json({ error: 'Only instructors or secretaries can send notifications.' });
-    }
-  
-    if (!target_user_id || !message) {
-      return res.status(400).json({ error: 'target_user_id and message are required.' });
-    }
-  
-    try {
-        await pool.query(
-            'INSERT INTO Notifications (user_id, message) VALUES (?, ?)',
-            [student_id, `You’ve been auto-registered for a resit exam in course ID ${course_id}.`]
-        );
+  const { userId, role } = req.user;
+  const { target_user_id, course_id, message } = req.body;
 
-      res.status(201).json({ message: 'Notification sent.' });
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: 'Failed to send notification.' });
+  if (!['instructor', 'faculty_secretary'].includes(role)) {
+    return res.status(403).json({ error: 'Only instructors or secretaries can send notifications.' });
+  }
+
+  if (!message) {
+    return res.status(400).json({ error: 'Message is required.' });
+  }
+
+  try {
+    const notifications = [];
+
+    // Option A: Notify specific user
+    if (target_user_id) {
+      await pool.query(
+        'INSERT INTO Notifications (user_id, message) VALUES (?, ?)',
+        [target_user_id, message]
+      );
+      notifications.push(target_user_id);
     }
+
+    // Option B: Notify entire course (students + instructor)
+    if (course_id) {
+      // 1. Notify students registered for the course (resit)
+      const [students] = await pool.query(
+        `SELECT DISTINCT rr.student_id
+         FROM ResitRegistrations rr
+         JOIN Exams e ON rr.exam_id = e.exam_id
+         WHERE e.course_id = ? AND e.exam_type = 'resit'`,
+        [course_id]
+      );
+
+      for (const { student_id } of students) {
+        await pool.query(
+          'INSERT INTO Notifications (user_id, message) VALUES (?, ?)',
+          [student_id, message]
+        );
+        notifications.push(student_id);
+      }
+
+      // 2. Notify instructor for that course
+      const [instructors] = await pool.query(
+        'SELECT instructor_id FROM Courses WHERE course_id = ?',
+        [course_id]
+      );
+
+      if (instructors.length && instructors[0].instructor_id) {
+        const instructorId = instructors[0].instructor_id;
+        await pool.query(
+          'INSERT INTO Notifications (user_id, message) VALUES (?, ?)',
+          [instructorId, message]
+        );
+        notifications.push(instructorId);
+      }
+    }
+
+    res.status(201).json({ message: 'Notification(s) sent.', recipients: notifications });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to send notification.', details: err.message });
+  }
 });
+
+
+// GET /api/instructor/my-courses
+router.get('/my-courses', authenticateToken, async (req, res) => {
+  const { userId, role } = req.user;
+  if (role !== 'instructor') return res.status(403).end();
+
+  const [courses] = await pool.query(
+    'SELECT course_id, course_code, course_name FROM Courses WHERE instructor_id = ?',
+    [userId]
+  );
+  res.json({ courses });
+});
+
 
 module.exports = router;
